@@ -1,0 +1,45 @@
+# =========================================================================
+# Secrets / credentials — never commit these
+# =========================================================================
+.env
+.env.*
+*.pem
+*.key
+secrets/
+
+# =========================================================================
+# Generated data — outputs of running the pipelines, not source
+# =========================================================================
+data/raw_lake/
+data/optimized/
+data/gdrive_shared_simulated/
+!data/partner_files/          # the provided sample input files ARE tracked
+
+# =========================================================================
+# Airflow runtime artifacts
+# =========================================================================
+airflow_logs/
+logs/
+*.pid
+airflow-webserver.pid
+standalone_admin_password.txt
+
+# =========================================================================
+# Python
+# =========================================================================
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# =========================================================================
+# OS / editor noise
+# =========================================================================
+.DS_Store
+.vscode/
+.idea/
+*.swp

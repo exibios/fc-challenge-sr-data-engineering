@@ -1,0 +1,33 @@
+# secrets
+Secrets: do not store secrets in code, use .env file and enforce reading the files
+
+# code convetions
+Python files, variables, functions: snake_case
+Python classes: PascalCase
+SQL files, tables, views, columns, databases, schemas: snake_case
+Constants: UPPER_SNAKE_CASE
+Cloud Resources: kebab-case
+Cloud Storage folder path/ Time based/ Category Region: kebab-case; Example: /[source_system]/[entity]/[partitioning_logic]/[file_name]
+/[source_system]/[entity]/year=[YYYY]/month=[MM]/day=[DD]/hour=[HH]/minute=[mm]/second=[ss]/[file].parquet
+Git Repositories: kebab-case
+Cloud Tags: PascalCase
+
+# branching strategy
+use .gitignore and do not add secrets, .env files and temporary files
+drafts, challenges & test: direct promotion
+development (data): Environment Branching, GitHubFlow ( no releases ), Indirect promotion
+production (data): Environment Branching, GitHubFlow ( no releases ), Indirect promotion
+
+# retention policy
+
+# data modeling
+# physical
+# logical
+
+# observability
+
+# execution and test
+Make: use make to encapsule commands to spin up quickly the project
+
+# agentic generation
+verbose: Keep it functional, avoid over explanation. Create a checklist of what's implemented and why it solves the request

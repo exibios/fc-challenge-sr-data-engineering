@@ -1,0 +1,126 @@
+version: "3.8"
+
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.9.3-python3.11
+  env_file:
+    - .env
+  environment:
+    &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@airflow-postgres/${AIRFLOW_DB_NAME}"
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'true'
+    PYTHONPATH: /opt/airflow/common
+    # Dev-only convenience: installs extra libs on container start.
+    # For anything beyond a local prototype this belongs in a custom image.
+    _PIP_ADDITIONAL_REQUIREMENTS: "pandas==2.2.2 pyarrow==16.1.0 psycopg2-binary==2.9.9"
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./common:/opt/airflow/common
+    - ./stream:/opt/airflow/stream
+    - ./data:/opt/airflow/data
+    - airflow_logs:/opt/airflow/logs
+  depends_on:
+    airflow-postgres:
+      condition: service_healthy
+    app-postgres:
+      condition: service_healthy
+
+services:
+  # ---- Airflow metadata DB (kept separate from the app DB on purpose) ----
+  airflow-postgres:
+    image: postgres:15
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${AIRFLOW_DB_USER}
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD}
+      POSTGRES_DB: ${AIRFLOW_DB_NAME}
+    volumes:
+      - airflow_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${AIRFLOW_DB_USER}"]
+      interval: 5s
+      retries: 10
+
+  # ---- Application DB: operational store + production tables + governance tables ----
+  app-postgres:
+    image: postgres:15
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${APP_DB_USER}
+      POSTGRES_PASSWORD: ${APP_DB_PASSWORD}
+      POSTGRES_DB: ${APP_DB_NAME}
+    ports:
+      - "${APP_DB_HOST_PORT}:5432"
+    volumes:
+      - app_pg_data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${APP_DB_USER}"]
+      interval: 5s
+      retries: 10
+
+  # ---- LocalStack: simulates Kinesis for the real-time flow ----
+  localstack:
+    image: localstack/localstack:3.5
+    environment:
+      SERVICES: kinesis
+      DEBUG: 0
+    ports:
+      - "4566:4566"
+    volumes:
+      - localstack_data:/var/lib/localstack
+
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate &&
+        airflow users create \
+          --username "$${AIRFLOW_ADMIN_USER}" --password "$${AIRFLOW_ADMIN_PASSWORD}" \
+          --firstname "$${AIRFLOW_ADMIN_FIRSTNAME}" --lastname "$${AIRFLOW_ADMIN_LASTNAME}" \
+          --role Admin --email "$${AIRFLOW_ADMIN_EMAIL}"
+    restart: "no"
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    depends_on:
+      - airflow-init
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    depends_on:
+      - airflow-init
+
+  # ---- Long-running stream consumer for the low-latency path ----
+  stream-consumer:
+    build:
+      context: .
+      dockerfile: stream/Dockerfile
+    env_file:
+      - .env
+    environment:
+      KINESIS_ENDPOINT_URL: "http://localstack:4566"
+      PYTHONPATH: /opt/airflow/common:/opt/airflow
+    volumes:
+      - ./common:/opt/airflow/common
+      - ./stream:/opt/airflow/stream
+      - ./data:/opt/airflow/data
+    depends_on:
+      - localstack
+      - app-postgres
+
+volumes:
+  airflow_pg_data:
+  app_pg_data:
+  localstack_data:
+  airflow_logs:

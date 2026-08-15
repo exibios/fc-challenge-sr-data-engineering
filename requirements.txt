@@ -1,0 +1,8 @@
+# Reference list — the stream-consumer image and the Airflow containers
+# install these independently (see stream/Dockerfile and the
+# _PIP_ADDITIONAL_REQUIREMENTS env var in docker-compose.yml).
+boto3==1.34.144
+psycopg2-binary==2.9.9
+pandas==2.2.2
+pyarrow==16.1.0
+pydantic==2.8.2
