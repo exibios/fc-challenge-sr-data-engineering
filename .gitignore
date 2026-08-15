@@ -43,3 +43,4 @@ venv/
 .vscode/
 .idea/
 *.swp
+.wayofwork
