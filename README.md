@@ -104,4 +104,40 @@ Where to look next
 - `dags/batch_reverse_etl_dag.py` — batch ETL tasks.
 - `common/audit.py` — auditing + alerting implementation.
 
-If you want automated consumer checkpoints (per-shard sequence numbers) and a `make kinesis-lag` command to compute lag, I can add that next.
+Important environment variables (non-sensitive)
+- Use `.env.example` as the template; do NOT commit secrets into source control.
+- Key variables you may set in `.env`:
+  - `AIRFLOW_DB_USER`, `AIRFLOW_DB_PASSWORD`, `AIRFLOW_DB_NAME` — Airflow metadata DB credentials.
+  - `AIRFLOW_ADMIN_USER`, `AIRFLOW_ADMIN_PASSWORD`, `AIRFLOW_ADMIN_EMAIL` — Airflow UI admin account.
+  - `APP_DB_USER`, `APP_DB_PASSWORD`, `APP_DB_NAME`, `APP_DB_HOST_PORT` — application Postgres credentials and host mapping.
+  - `KINESIS_ENDPOINT_URL`, `KINESIS_STREAM_NAME` — LocalStack endpoint and stream name used by generator and consumer.
+  - `KINESIS_ACCESS_KEY_ID`, `KINESIS_SECRET_ACCESS_KEY` — local (mock) AWS credentials for LocalStack.
+  - `LOCALSTACK_AUTH_TOKEN`, `LOCALSTACK_PERSISTANCE`, `LOCALSTACK_SNAPSHOT_SAVE_STRATEGY`, `LOCALSTACK_SNAPSHOT_SAVE_STRATEGY_INTERVAL` — LocalStack runtime options.
+  - `LAKE_ROOT`, `PARTNER_FILES_DIR`, `OPTIMIZED_DIR`, `DELIVERY_DIR` — container-internal paths for data storage.
+
+Start without Make (direct commands)
+1. Use the helper which creates/activates the venv and starts the stack:
+```bash
+# create venv, install requirements (if present), and start the compose stack
+./scripts/start_without_make.sh
+```
+2. If you prefer to manage the venv manually:
+```bash
+./scripts/setup_env.sh
+source .venv/bin/activate
+docker compose up -d --build
+```
+3. Tail logs (examples):
+```bash
+docker compose logs -f stream-consumer
+docker compose logs -f localstack
+```
+
+Helper script
+- `scripts/start_without_make.sh` now ensures a Python virtual environment exists (creates it with `python3 -m venv` if missing), activates it, upgrades `pip`, `setuptools`, and `wheel`, installs `requirements.txt` when present, and finally runs `docker compose up -d --build`.
+
+Notes
+- If `python3` is not on PATH the script will exit with an error asking you to install Python 3.
+- Use `chmod +x scripts/start_without_make.sh` once to make it executable.
+
+
