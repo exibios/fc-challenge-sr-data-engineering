@@ -1,9 +1,4 @@
--- =========================================================================
--- Bankaya SR DE Challenge — Application Database Schema
--- One DB, four concerns: operational store, production (batch) tables,
--- quarantine tables, and governance/observability tables.
--- =========================================================================
-
+-- Challenge SR DE Challenge — Application Database Schema
 -- -------------------------------------------------------------------------
 -- OPERATIONAL STORE (Phase A) — read path for the underwriting engine.
 -- Postgres chosen here: single-digit-ms point lookups by application_id

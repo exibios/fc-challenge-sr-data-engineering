@@ -51,7 +51,7 @@ default_args = {
     start_date=datetime(2026, 5, 1),
     catchup=False,
     default_args=default_args,
-    tags=["bankaya", "challenge", "batch", "reverse-etl"],
+    tags=["challenge", "batch", "reverse-etl"],
 )
 def batch_reverse_etl():
 

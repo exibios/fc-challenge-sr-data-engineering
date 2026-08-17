@@ -1,4 +1,4 @@
-version: "3.8"
+version: "3.9"
 
 x-airflow-common: &airflow-common
   image: apache/airflow:2.9.3-python3.11
@@ -26,6 +26,7 @@ x-airflow-common: &airflow-common
       condition: service_healthy
     app-postgres:
       condition: service_healthy
+  restart: unless-stopped
 
 services:
   # ---- Airflow metadata DB (kept separate from the app DB on purpose) ----
@@ -43,6 +44,7 @@ services:
       test: ["CMD", "pg_isready", "-U", "${AIRFLOW_DB_USER}"]
       interval: 5s
       retries: 10
+    restart: unless-stopped
 
   # ---- Application DB: operational store + production tables + governance tables ----
   app-postgres:
@@ -62,17 +64,23 @@ services:
       test: ["CMD", "pg_isready", "-U", "${APP_DB_USER}"]
       interval: 5s
       retries: 10
+    restart: unless-stopped
 
   # ---- LocalStack: simulates Kinesis for the real-time flow ----
   localstack:
     image: localstack/localstack:3.5
     environment:
-      SERVICES: kinesis
+      LOCALSTACK_AUTH_TOKEN: ${LOCALSTACK_AUTH_TOKEN}
+      SERVICES: kinesis,s3
       DEBUG: 0
+      PERSISTENCE: ${LOCALSTACK_PERSISTANCE}
+      SNAPSHOT_SAVE_STRATEGY: ${LOCALSTACK_SNAPSHOT_SAVE_STRATEGY}
+      SNAPSHOT_FLUSH_INTERVAL: ${LOCALSTACK_SNAPSHOT_SAVE_STRATEGY_INTERVAL}
     ports:
       - "4566:4566"
     volumes:
       - localstack_data:/var/lib/localstack
+    restart: unless-stopped
 
   airflow-init:
     <<: *airflow-common
@@ -100,6 +108,7 @@ services:
     command: scheduler
     depends_on:
       - airflow-init
+    
 
   # ---- Long-running stream consumer for the low-latency path ----
   stream-consumer:
@@ -111,6 +120,7 @@ services:
     environment:
       KINESIS_ENDPOINT_URL: "http://localstack:4566"
       PYTHONPATH: /opt/airflow/common:/opt/airflow
+      PYTHONUNBUFFERED: "1"
     volumes:
       - ./common:/opt/airflow/common
       - ./stream:/opt/airflow/stream
@@ -118,6 +128,30 @@ services:
     depends_on:
       - localstack
       - app-postgres
+    restart: unless-stopped
+
+  # ---- Stream generator: produces synthetic Kinesis events ----
+  stream-generator:
+    build:
+      context: .
+      dockerfile: stream/Dockerfile
+    env_file:
+      - .env
+    environment:
+      KINESIS_ENDPOINT_URL: "http://localstack:4566"
+      PYTHONPATH: /opt/airflow/common:/opt/airflow
+      # Optional controls (set via .env or `docker compose run -e GENERATOR_SECONDS=60`)
+      PYTHONUNBUFFERED: "1"
+      GENERATOR_SECONDS: "0"
+      GENERATOR_EVENTS: "0"
+    volumes:
+      - ./common:/opt/airflow/common
+      - ./stream:/opt/airflow/stream
+      - ./data:/opt/airflow/data
+    command: ["python", "/opt/airflow/stream/stream_generator.py"]
+    depends_on:
+      - localstack
+    restart: unless-stopped
 
 volumes:
   airflow_pg_data:

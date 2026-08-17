@@ -38,7 +38,7 @@ from audit import audited, raise_alert   # noqa: E402
 STREAM_NAME = os.environ.get("KINESIS_STREAM_NAME", "credit_applications_stream")
 ENDPOINT_URL = os.environ.get("KINESIS_ENDPOINT_URL", "http://localhost:4566")
 LAKE_ROOT = Path(os.environ.get("LAKE_ROOT", "./data/raw_lake"))
-POLL_INTERVAL_SECONDS = 2
+POLL_INTERVAL_SECONDS = 5
 REJECTION_RATE_ALERT_THRESHOLD = 0.15  # 15% of a polling batch rejected -> alert
 
 REQUIRED_FIELDS = [
@@ -57,14 +57,14 @@ def get_kinesis_client():
     )
 
 
-def wait_for_stream(client, retries=15):
+def wait_for_stream(client, retries=100):
     for _ in range(retries):
         try:
             client.describe_stream(StreamName=STREAM_NAME)
             return
         except client.exceptions.ResourceNotFoundException:
             print(f"⏳ Waiting for stream '{STREAM_NAME}' to be created by the generator...")
-            time.sleep(2)
+            time.sleep(5)
     raise RuntimeError(f"Stream '{STREAM_NAME}' never became available.")
 
 
